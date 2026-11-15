@@ -1,6 +1,6 @@
 # 格式、协议与移植（中文）
 
-接 [README](../../README.zh-CN.md#五分钟跑通) 之后要用的参考。
+接 [README](../../README.md#五分钟跑通) 之后要用的参考。
 英文版：[../guide.md](../guide.md)
 
 ---

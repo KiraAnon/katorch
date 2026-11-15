@@ -1,6 +1,6 @@
 # KAtorch: format, protocol, and porting
 
-This is the reference you need after the [quick start](../README.md#quick-start).
+This is the reference you need after the [quick start](../README.en.md#quick-start).
 It covers the graph text format, the complete host command protocol, driving
 `lowering.py` from your own PyTorch module, and how to diagnose the failures that
 this hardware produces.
