@@ -93,7 +93,7 @@ You need root, Termux with `clang`, and a device whose `/vendor/lib64` contains
 ```sh
 # 1. build the host
 pkg install clang
-git clone <this-repo> katorch && cd katorch
+git clone https://github.com/KiraAnon/katorch.git && cd katorch
 clang -O2 -o host_new 编译器/host.c -ldl
 
 # 2. run the smallest possible graph

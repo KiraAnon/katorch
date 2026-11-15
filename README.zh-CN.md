@@ -90,7 +90,7 @@ DiT 的单步已经跑到**带宽下限的 78%**，不是算力受限：每步�
 ```sh
 # 1. 编宿主
 pkg install clang
-git clone <本仓库> katorch && cd katorch
+git clone https://github.com/KiraAnon/katorch.git && cd katorch
 clang -O2 -o host_new 编译器/host.c -ldl
 
 # 2. 跑最小的图（一个 ADD，不需要任何模型权重）
