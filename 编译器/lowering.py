@@ -266,35 +266,19 @@ class Lowering(object):
         nd = len(sh)
         if d0 < 0: d0 += nd
         if d1 < 0: d1 += nd
-        if nd == 2:
-            if d0 > d1: d0, d1 = d1, d0
-            perm = list(range(nd)); perm[d0], perm[d1] = perm[d1], perm[d0]
-            return self.op(TRANSPOSE, [x, self.const_i32(perm)], perm=perm)
-        # 3D/4D -> 补到 4D 再转
-        if nd == 3:
-            sh4 = [1] + sh
-            x4 = self.op(RESHAPE, [x, self.const_i32(sh4)], shape=sh4)
-            p = [0, 1, 2, 3]; p[d0 + 1], p[d1 + 1] = p[d1 + 1], p[d0 + 1]
-            y4 = self.op(TRANSPOSE, [x4, self.const_i32(p)], perm=p)
-            ysh = [sh4[q] for q in p]
-            return self.op(RESHAPE, [y4, self.const_i32(ysh[1:])], shape=ysh[1:])
+        if d0 > d1: d0, d1 = d1, d0
         perm = list(range(nd)); perm[d0], perm[d1] = perm[d1], perm[d0]
+        # 实测 MDLA 的 TRANSPOSE 直接支持 2D/3D/4D（3D 数值与 numpy 逐元素一致），
+        # 过去给 3D 包一层 4D 桥接是两个多余的 RESHAPE。
         return self.op(TRANSPOSE, [x, self.const_i32(perm)], perm=perm)
 
     def transpose_n(self, x, perm):
-        """任意 perm 的转置；3D 需要 4D 桥接（MDLA 的 TRANSPOSE 只吃 4D）。"""
+        """任意 perm 的转置。实测 MDLA 的 TRANSPOSE 接受 2D/3D/4D 原生维度，
+        不需要 4D 桥接（旧实现给 3D 包了两层 RESHAPE，纯属浪费算子）。"""
         sh = list(self._shape(x))
-        nd = len(sh)
-        if nd == 4:
-            return self.op(TRANSPOSE, [x, self.const_i32(perm)], perm=perm)
-        if nd == 3:
-            sh4 = [1] + sh
-            x4 = self.op(RESHAPE, [x, self.const_i32(sh4)], shape=sh4)
-            p4 = [0] + [q + 1 for q in perm]
-            y4 = self.op(TRANSPOSE, [x4, self.const_i32(p4)], perm=p4)
-            ysh = [sh4[q] for q in p4]
-            return self.op(RESHAPE, [y4, self.const_i32(ysh[1:])], shape=ysh[1:])
-        raise Unsupported("transpose_n 维度 %d" % nd)
+        if len(perm) != len(sh):
+            raise Unsupported("transpose_n: perm 长度 %d != 维度 %d" % (len(perm), len(sh)))
+        return self.op(TRANSPOSE, [x, self.const_i32(perm)], perm=perm)
 
     def reshape(self, x, shp):
         shp = list(shp)
