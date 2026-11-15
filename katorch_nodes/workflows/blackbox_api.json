@@ -1,0 +1,20 @@
+{
+  "1": {
+    "class_type": "KAtorchNPUGenerate",
+    "inputs": {
+      "prompt": "masterpiece, best quality, score_9, anime screenshot, 1girl, solo, black hair, red eyes, kimono, night, lanterns, looking at viewer",
+      "negative": "",
+      "seed": 777,
+      "width": 512,
+      "height": 512,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "beta"
+    }
+  },
+  "2": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["1", 0], "filename_prefix": "katorch_blackbox" }
+  }
+}

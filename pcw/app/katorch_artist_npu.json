@@ -1,0 +1,331 @@
+{
+ "last_node_id": 6,
+ "last_link_id": 4,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "AnimaV4RandomPrompt",
+   "pos": [
+    60,
+    80
+   ],
+   "size": [
+    420,
+    560
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "text",
+     "type": "STRING",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    },
+    {
+     "name": "report",
+     "type": "STRING",
+     "links": [],
+     "slot_index": 1
+    },
+    {
+     "name": "level",
+     "type": "STRING",
+     "links": [],
+     "slot_index": 2
+    },
+    {
+     "name": "cn_summary",
+     "type": "STRING",
+     "links": [],
+     "slot_index": 3
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "AnimaV4RandomPrompt"
+   },
+   "widgets_values": [
+    "sfw",
+    -1,
+    "randomize",
+    "自动",
+    0.65,
+    "",
+    "",
+    "",
+    "",
+    "",
+    true,
+    "",
+    false,
+    "",
+    "不指定",
+    "随机",
+    false,
+    true,
+    "角色标签发型",
+    "角色标签发型",
+    "角色标签发型",
+    "角色标签发型"
+   ],
+   "title": "随机提示词（正文）"
+  },
+  {
+   "id": 2,
+   "type": "StringConcatenate",
+   "pos": [
+    520,
+    80
+   ],
+   "size": [
+    420,
+    130
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "string_a",
+     "type": "STRING",
+     "link": null,
+     "shape": 7
+    },
+    {
+     "name": "string_b",
+     "type": "STRING",
+     "link": 1,
+     "shape": 7
+    },
+    {
+     "name": "delimiter",
+     "type": "STRING",
+     "link": null,
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "name": "STRING",
+     "type": "STRING",
+     "links": [
+      2
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "StringConcatenate"
+   },
+   "widgets_values": [
+    "@chigusa minori, @yoneyama mai, @mochizuki kei, @hiten, @wlop, @takeuchi takashi, @sos adult, @kobinbin",
+    "",
+    ", "
+   ],
+   "title": "① 画师串 + 随机正文"
+  },
+  {
+   "id": 3,
+   "type": "StringConcatenate",
+   "pos": [
+    520,
+    250
+   ],
+   "size": [
+    420,
+    130
+   ],
+   "flags": {},
+   "order": 3,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "string_a",
+     "type": "STRING",
+     "link": null,
+     "shape": 7
+    },
+    {
+     "name": "string_b",
+     "type": "STRING",
+     "link": 2,
+     "shape": 7
+    },
+    {
+     "name": "delimiter",
+     "type": "STRING",
+     "link": null,
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "name": "STRING",
+     "type": "STRING",
+     "links": [
+      3
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "StringConcatenate"
+   },
+   "widgets_values": [
+    "masterpiece, best quality, score_9, score_8, highres, absurdres, anime screenshot, official art",
+    "",
+    ", "
+   ],
+   "title": "② 官方质量词 + 上式"
+  },
+  {
+   "id": 4,
+   "type": "KAtorchNPUGenerate",
+   "pos": [
+    520,
+    420
+   ],
+   "size": [
+    420,
+    250
+   ],
+   "flags": {},
+   "order": 4,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "prompt_in",
+     "type": "STRING",
+     "link": 3,
+     "shape": 7
+    }
+   ],
+   "outputs": [
+    {
+     "name": "image",
+     "type": "IMAGE",
+     "links": [
+      4
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "KAtorchNPUGenerate"
+   },
+   "widgets_values": [
+    "",
+    "",
+    42,
+    512,
+    512
+   ],
+   "title": "③ KAtorch NPU 生图（约2分钟）"
+  },
+  {
+   "id": 5,
+   "type": "SaveImage",
+   "pos": [
+    980,
+    80
+   ],
+   "size": [
+    420,
+    460
+   ],
+   "flags": {},
+   "order": 5,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "images",
+     "type": "IMAGE",
+     "link": 4,
+     "shape": 7
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "SaveImage"
+   },
+   "widgets_values": [
+    "katorch_artist"
+   ],
+   "title": "保存图像"
+  },
+  {
+   "id": 6,
+   "type": "Note",
+   "pos": [
+    60,
+    680
+   ],
+   "size": [
+    420,
+    420
+   ],
+   "flags": {},
+   "order": 6,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "Note"
+   },
+   "widgets_values": [
+    "画师串用法：\n在「① 画师串 + 随机正文」节点的 string_a 里写 @画师名，逗号分隔。常用：\n@chigusa minori  @yoneyama mai  @mochizuki kei  @hiten  @wlop  @takeuchi takashi\n@sos adult  @kobinbin  @choujiroo  @sincos  @ratatatat74  @satou kuuki  @endou okito\n@dishwasher1910  @akkgsyk  @vanripper  @ke-ta  @as109  @karory  @ebifurya  @yueko\n@ciloranko  @wanke  @horuhara  @keihh  @mikozin  @frengartist  @chen bin\n@tamanoi peromekuri  @xilmo  @remsrar  @okazu  @ningen mame\n\n流程：画师串 + AnimaV4RandomPrompt 正文 → 官方质量词 → NPU 节点生成（512x512，约 2 分钟）\n如果想完全自由写提示词，把 NPU 节点的 prompt 文本框填上，并断开 prompt_in 的连线。\n"
+   ],
+   "title": "画师串参考"
+  }
+ ],
+ "links": [
+  [
+   1,
+   1,
+   0,
+   2,
+   1,
+   "STRING"
+  ],
+  [
+   2,
+   2,
+   0,
+   3,
+   1,
+   "STRING"
+  ],
+  [
+   3,
+   3,
+   0,
+   4,
+   0,
+   "STRING"
+  ],
+  [
+   4,
+   4,
+   0,
+   5,
+   0,
+   "IMAGE"
+  ]
+ ],
+ "groups": [],
+ "config": {},
+ "extra": {
+  "ds": {
+   "scale": 0.75,
+   "offset": [
+    30,
+    20
+   ]
+  }
+ },
+ "version": 0.4
+}

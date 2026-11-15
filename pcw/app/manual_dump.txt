@@ -1,0 +1,48 @@
+======================================================================
+id=1  type=UNETLoader  title=
+  输出: [('MODEL', 'MODEL')]
+  参数: ["anima-base-v1.0.safetensors", "default"]
+======================================================================
+id=2  type=CLIPLoader  title=
+  输出: [('CLIP', 'CLIP')]
+  参数: ["qwen_3_06b_base.safetensors", "stable_diffusion", "default"]
+======================================================================
+id=3  type=VAELoader  title=
+  输出: [('VAE', 'VAE')]
+  参数: ["qwen_image_vae.safetensors"]
+======================================================================
+id=4  type=LoraLoader  title=
+  输入: [('model', 'MODEL', 1), ('clip', 'CLIP', 2)]
+  输出: [('MODEL', 'MODEL'), ('CLIP', 'CLIP')]
+  参数: ["anima-turbo-lora-v0.2.safetensors", 0.6, 0.6]
+======================================================================
+id=6  type=CLIPTextEncode  title=正向（手动填，含画师串）
+  输入: [('clip', 'CLIP', 5)]
+  输出: [('CONDITIONING', 'CONDITIONING')]
+  参数: ["masterpiece, best quality, score_9, score_8, highres, absurdres, anime screenshot, official art, 1girl, solo, pink hair, blue eyes, @necomi, @banned artist"]
+======================================================================
+id=7  type=CLIPTextEncode  title=负向
+  输入: [('clip', 'CLIP', 5)]
+  输出: [('CONDITIONING', 'CONDITIONING')]
+  参数: ["worst quality, low quality, score_1, score_2, score_3, artist name, simple background, lowres, (bad), text, error, fewer, extra, missing, jpeg artifacts, watermark, unfinished, displeasing, signature, artistic error, username, scan, english text, shiny hair"]
+======================================================================
+id=8  type=EmptyLatentImage  title=
+  输出: [('LATENT', 'LATENT')]
+  参数: [800, 1424, 1]
+======================================================================
+id=9  type=KSampler  title=
+  输入: [('model', 'MODEL', 4), ('positive', 'CONDITIONING', 8), ('negative', 'CONDITIONING', 9), ('latent_image', 'LATENT', 10)]
+  输出: [('LATENT', 'LATENT')]
+  参数: [12345, "randomize", 8, 1.0, "er_sde", "beta", 1.0]
+======================================================================
+id=10  type=VAEDecode  title=
+  输入: [('samples', 'LATENT', 11), ('vae', 'VAE', 3)]
+  输出: [('IMAGE', 'IMAGE')]
+  参数: []
+======================================================================
+id=11  type=SaveImage  title=
+  输入: [('images', 'IMAGE', 12)]
+  参数: ["Anima手动/out"]
+======================================================================
+id=12  type=Note  title=说明
+  参数: ["【手动输入版】纯文生图，没有 RuleFlow 节点、没有 mask。\n\n两个 CLIPTextEncode 直接手写：\n- 正向末尾带画师串 @necomi, @banned artist\n- 负向自带一套默认负面词\n\n换画师就改正向里那一段。8 步 / cfg 1 / er_sde / beta。"]

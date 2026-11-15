@@ -1,0 +1,16 @@
+# Runtime requirements for the Python side.
+#
+# The C host (编译器/host.c) has no dependencies beyond libc and libdl.
+# The device needs the vendor's libneuron_adapter, which is not distributed here.
+
+# Required by lowering.py and every graph-building script.
+numpy>=1.24
+
+# Required to trace models (`lowering.py`) and to build the reference graphs in
+# KAcustom / KAdit / KAvae / pcw. CPU-only build is enough; nothing here needs CUDA.
+torch>=2.0
+
+# Optional: only needed by KAllm/ (loading the Qwen3 text encoder and the T5 tokenizer).
+# tokenizers>=0.15
+# transformers>=4.40
+# safetensors>=0.4

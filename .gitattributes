@@ -1,0 +1,26 @@
+# Normalise line endings on checkout. Shell scripts must stay LF or the device will
+# report `bad interpreter: /bin/sh^M`; Windows-only scripts must stay CRLF.
+* text=auto
+
+*.sh      text eol=lf
+*.py      text eol=lf
+*.c       text eol=lf
+*.h       text eol=lf
+*.md      text eol=lf
+*.txt     text eol=lf
+*.json    text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+*.ps1     text eol=crlf
+*.bat     text eol=crlf
+
+# Never touch binary content.
+*.png     binary
+*.jpg     binary
+*.dla     binary
+*.bin     binary
+*.so      binary
+*.apk     binary
+*.jks     binary
+*.npy     binary

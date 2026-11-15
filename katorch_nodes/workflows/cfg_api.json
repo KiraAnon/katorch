@@ -1,0 +1,57 @@
+{
+  "1": {
+    "class_type": "KAtorchUNETLoader",
+    "inputs": { "asset": "blobs512m" }
+  },
+  "2": {
+    "class_type": "KAtorchCLIPLoader",
+    "inputs": { "clip_name": "qwen3.safetensors" }
+  },
+  "3": {
+    "class_type": "KAtorchCLIPTextEncode",
+    "inputs": {
+      "clip": ["2", 0],
+      "text": "masterpiece, best quality, score_9, anime screenshot, 1girl, solo, white hair, blue eyes, winter coat, snowy street, looking at viewer"
+    }
+  },
+  "4": {
+    "class_type": "KAtorchCLIPTextEncode",
+    "inputs": { "clip": ["2", 0], "text": "worst quality, low quality, blurry, watermark" }
+  },
+  "5": {
+    "class_type": "KAtorchVAELoader",
+    "inputs": { "vae_name": "qwen_image_vae.safetensors" }
+  },
+  "6": {
+    "class_type": "KAtorchEmptyLatentImage",
+    "inputs": { "width": 512, "height": 512, "batch_size": 1 }
+  },
+  "7": {
+    "class_type": "KAtorchKSampler",
+    "inputs": {
+      "model": ["1", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["6", 0],
+      "seed": 2024,
+      "steps": 6,
+      "cfg": 1.6,
+      "sampler_name": "euler",
+      "scheduler": "beta",
+      "denoise": 1.0,
+      "shift": 3.0,
+      "s_noise": 1.0,
+      "sde_stage": 3,
+      "beta_a": 0.6,
+      "beta_b": 0.6
+    }
+  },
+  "8": {
+    "class_type": "KAtorchVAEDecode",
+    "inputs": { "samples": ["7", 0], "vae": ["5", 0] }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["8", 0], "filename_prefix": "katorch_cfg" }
+  }
+}

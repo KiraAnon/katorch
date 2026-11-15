@@ -1,0 +1,39 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # torch and numpy are deliberately not installed: this job checks that the
+      # published sources are parseable, not that the model stack can be imported.
+      - name: Python sources must parse
+        run: >
+          python -m compileall -q
+          编译器 KAcustom KAdit KAllm KAvae katorch_nodes tools 测试 pcw examples
+
+      - name: Shell scripts must be LF
+        run: |
+          if git grep -lI $'\r' -- '*.sh'; then
+            echo "::error::CRLF found in a shell script; the device reports 'bad interpreter'."
+            exit 1
+          fi
+
+      - name: No vendor binaries or model weights may be tracked
+        run: |
+          if git ls-files | grep -Ei '\.(dla|so|apk|jks|keystore|safetensors|gguf|onnx|pt|pth|ckpt)$'; then
+            echo "::error::A file that must not be redistributed is tracked by git."
+            exit 1
+          fi
+
+      - name: Markdown links must resolve
+        run: python tools/check_links.py

@@ -1,0 +1,118 @@
+# ============================================================
+#  KAtorch —— 发布面控制
+#  只发布源码与文档。编译产物、厂商库、模型权重、备份、临时调试残渣一律不入库。
+#  规则以「目录黑名单」为主，扩展名兜底。
+# ============================================================
+
+# ---------- 编译 / 运行产物 ----------
+*.dla
+*.apk
+*.idsig
+*.aab
+*.so
+*.so.*
+*.dylib
+*.dll
+*.o
+*.obj
+*.a
+*.lib
+*.dex
+*.class
+*.jar
+*.aar
+*.wasm
+*.map
+*.ll
+*.exe
+*.pyc
+*.pyo
+__pycache__/
+*.log
+
+# ---------- 权重与张量数据（体积大 / 有各自的授权条款）----------
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.gguf
+*.onnx
+*.onnx.data
+*.sft
+*.bin
+*.npy
+*.npz
+*.ppm
+
+# ---------- 不随本仓库发布的部分 ----------
+# Android 壳（包名/图标/整套 APK 构建）由另一条线单独开源，避免重叠
+/katorch_app/
+
+# PC 侧绕过设备检查跑 MediaTek 闭源编译器的调试环境：
+# 含厂商专有 .so、sysroot，以及对闭源库的运行时二进制补丁工具，不适合公开分发
+/PC编译/
+
+# 第三方参考仓库（bestkojima/mtk-npug-handoff）—— 仅作引用，不随仓库分发
+/参考-mtk-npug/
+
+# 厂商提供的 Neuron 头文件（NeuronAdapter.h 明确标注 MediaTek confidential）
+/pcw/headers/
+
+# 与 KAcustom / KAdit / KAvae 重复的副本：pymod 是从手机原样拉回的，ref 是 PC 参考版
+/pcw/pymod/
+/pcw/ref/
+
+# 实验用的 ctx / 输入张量 / 探针与中间产物
+/pcw/ctx/
+/pcw/bin/
+/pcw/out/
+
+# 节点包的旧备份（ComfyUI 会把它当第二个插件加载）
+/katorch_nodes/_bak_*/
+
+# 演示图与临时输出
+/out/
+/out_tail.txt
+
+# 内部工作笔记（含本机路径与个人记录，不对外）
+/文档/
+/HANDOFF.md
+/PROJECT_LAYOUT.md
+
+# 设备端临时调试脚本（tools/ 下的 _*.sh，共 40+ 个，历史残渣）
+/tools/_*.sh
+
+# 与另一条开源线（comfyui-android）相关的迁移工具，不属于这套栈
+/tools/make_oss_repo.py
+/tools/make_oss_repo.ps1
+/tools/oss_security_check.py
+/tools/gh_device_login.py
+
+# pcw/scripts 下一半以上是「adb shell 调度壳」和临时试验，命名脚本才是可复现的部分
+/pcw/scripts/_*
+/pcw/scripts/*.sh
+
+# 运行时对闭源库打二进制补丁的 host 版本（mprotect + naked stub），不公开
+/编译器/host_pc_debug.c
+/mobile-baseline/npt/host_new.c
+
+# 编译产物与生成的演示图
+/编译器/host
+/katorch_nodes/out/
+
+# 早期算子扫描的原始记录，已被 docs/operators.md 取代并更正口径
+/算子清单/
+
+# 工具自己的工作状态
+/.jspace/
+/.agent-teams/
+
+# 个人环境
+.venv/
+venv/
+.env
+.env.*
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

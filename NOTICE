@@ -1,0 +1,77 @@
+KAtorch
+Copyright 2026 the KAtorch authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This NOTICE file describes third-party components and materials that are either
+referenced by, interfaced with, or deliberately NOT distributed with this repository.
+
+
+1. MediaTek Neuron Adapter / MDLA runtime
+-----------------------------------------
+KAtorch talks to the NPU through `libneuron_adapter_mgvi.so`, which is proprietary
+firmware-adjacent software shipped inside the device's `/vendor/lib64` partition by
+the hardware vendor. KAtorch loads it at runtime with `dlopen()` only.
+
+Neither the library itself nor any vendor header is distributed here. The headers in
+the vendor SDK (`NeuronAdapter.h` and friends) carry an explicit MediaTek
+confidential/proprietary notice and are deliberately excluded from this repository.
+Users must obtain any such material from their own device or from MediaTek under
+their own terms.
+
+No MediaTek code is compiled into, linked against, or redistributed by this project.
+
+
+2. ComfyUI
+----------
+The node pack under `katorch_nodes/` is a third-party extension for ComfyUI
+(https://github.com/comfyanonymous/ComfyUI), which is licensed under GPL-3.0.
+The GPL project is a separate work: `katorch_nodes/` contains no ComfyUI source
+code and is loaded by ComfyUI at runtime as a custom node package.
+
+If you redistribute a bundled ComfyUI along with this node pack, the ComfyUI terms
+apply to that bundle. ComfyUI is a trademark of its authors; the name and logo are
+not licensed by this project.
+
+
+3. Model weights
+----------------
+This repository contains no model weights. The reference pipeline was validated with:
+
+  * Anima DiT (image generation backbone), and the MiaoMiao Harem anime fine-tune
+    distributed through Civitai.
+  * Wan2.1 VAE decoder, as shipped in the ComfyUI ecosystem (`qwen_image_vae`).
+  * Qwen3-0.6B, and the T5 tokenizer used by ComfyUI's text encoders.
+
+Each of these is governed by its own upstream license and acceptable-use terms.
+Nothing here grants you rights to them, and the numbers in this repository's docs
+say nothing about whether your use of those weights is permitted.
+
+
+4. Reference work: mtk-npug-handoff
+-----------------------------------
+An independent community project (https://github.com/bestkojima/mtk-npug-handoff)
+explores a different format ("NPUG") for the same hardware family. It was read as
+reference material. No code from it is included here, and it is not redistributed.
+
+The two projects are unrelated: KAtorch uses its own plain-text graph format and
+drives the Neuron adapter API directly.
+
+
+5. Deliberately not distributed
+-------------------------------
+  * Vendor shared objects, sysroots, and headers (proprietary; see section 1).
+  * Any `.dla` compiled network, APK, keystore, or model checkpoint.
+  * The PC-side debug environment that runs the vendor's closed-source compiler under
+    emulation and patches it at runtime. That environment is a local reverse-engineering
+    aid; it exists to keep this repository free of vendor binaries.
+  * The Android WebView shell used to package the reference demo. It is maintained
+    as a separate project so that its packaging and branding questions do not have to
+    gate this toolchain.
+
+
+6. Trademarks
+-------------
+"MediaTek", "Dimensity", "NeuroPilot", "APUSys", "MDLA", "ComfyUI", "Anima",
+"MiaoMiao Harem", "Qwen" and "T5" are names or trademarks of their respective
+owners. This project is not affiliated with, endorsed by, or sponsored by any of them.

@@ -1,0 +1,36 @@
+======================================================================
+id=1  type=UNETLoader  title=
+  参数: ["anima-base-v1.0.safetensors", "default"]
+======================================================================
+id=2  type=CLIPLoader  title=
+  参数: ["qwen_3_06b_base.safetensors", "stable_diffusion", "default"]
+======================================================================
+id=3  type=VAELoader  title=
+  参数: ["qwen_image_vae.safetensors"]
+======================================================================
+id=4  type=LoraLoader  title=
+  参数: ["anima-turbo-lora-v0.2.safetensors", 0.6, 0.6]
+======================================================================
+id=5  type=RuleFlowPrompt  title=RuleFlow 粗生成（中文 → 提示词）
+  参数: ["粉发少女在雨天的便利店门口撑伞", "ds/deepseek-flash", "@necomi, @banned artist", false, false, false, false, false, "不限", "不用", "自动", "ds/deepseek-flash", "worst quality, low quality, score_1, score_2, score_3, artist name, simple background, lowres, bad, text, error, fewer, extra, missing, watermark, jpeg artifacts, signature, username", "http://127.0.0.1:8898", 300]
+======================================================================
+id=6  type=CLIPTextEncode  title=
+  参数: [""]
+======================================================================
+id=7  type=CLIPTextEncode  title=
+  参数: [""]
+======================================================================
+id=8  type=EmptyLatentImage  title=
+  参数: [800, 1424, 1]
+======================================================================
+id=9  type=KSampler  title=
+  参数: [12345, "randomize", 8, 1.0, "er_sde", "beta", 1.0]
+======================================================================
+id=10  type=VAEDecode  title=
+  参数: []
+======================================================================
+id=11  type=SaveImage  title=
+  参数: ["RuleFlow粗生成/out"]
+======================================================================
+id=12  type=Note  title=说明
+  参数: ["【粗生成版】不加 mask / 区域 / 拆分。\n\n流程：RuleFlow 节点把中文描述变成 tag 提示词（split=False, polish=False），直接喂 CLIPTextEncode。\n\n前提：RuleFlow 服务要在 8898 跑着。"]

@@ -1,0 +1,95 @@
+======================================================================
+id=1002  type=CLIPLoader  title=全局共享 CLIP
+  输入: [('clip_name', 'COMBO'), ('type', 'COMBO'), ('device', 'COMBO')]
+  输出: [('CLIP', 'CLIP')]
+  参数: ["Anima\\qwen_3_06b_base.safetensors", "stable_diffusion", "default"]
+======================================================================
+id=1003  type=VAELoader  title=全局共享 VAE
+  输入: [('vae_name', 'COMBO')]
+  输出: [('VAE', 'VAE')]
+  参数: ["Qwen\\qwen_image_vae.safetensors"]
+======================================================================
+id=1004  type=CR Text  title=
+  输入: [('text', 'STRING')]
+  输出: [('text', '*'), ('show_help', 'STRING')]
+  参数: [""]
+======================================================================
+id=1006  type=Seed (rgthree)  title=全局种子
+  输出: [('随机种', 'INT')]
+  参数: [-1, "", "", "okay"]
+======================================================================
+id=1032  type=Context (rgthree)  title=流3 输入总线
+  输入: [('base_ctx', 'RGTHREE_CONTEXT'), ('model', 'MODEL'), ('clip', 'CLIP'), ('vae', 'VAE'), ('positive', 'CONDITIONING'), ('negative', 'CONDITIONING'), ('latent', 'LATENT'), ('images', 'IMAGE'), ('seed', 'INT')]
+  输出: [('上下文', 'RGTHREE_CONTEXT'), ('模型', 'MODEL'), ('CLIP', 'CLIP'), ('VAE', 'VAE'), ('正面条件', 'CONDITIONING'), ('负面条件', 'CONDITIONING'), ('Latent', 'LATENT'), ('图像', 'IMAGE'), ('随机种', 'INT')]
+======================================================================
+id=1033  type=UNETLoader  title=
+  输入: [('unet_name', 'COMBO'), ('weight_dtype', 'COMBO')]
+  输出: [('MODEL', 'MODEL')]
+  参数: ["Anima\\miaomiaoHarem_anima12.safetensors", "default"]
+======================================================================
+id=1034  type=StringConcatenate  title=自动拼接：官方质量词（本流）+ 全局正文
+  输入: [('string_a', 'STRING'), ('string_b', 'STRING'), ('delimiter', 'STRING')]
+  输出: [('STRING', 'STRING')]
+  参数: ["masterpiece, best quality, score_9, score_8, highres, absurdres, anime screenshot, official art", "", ", "]
+======================================================================
+id=1035  type=CLIPTextEncode  title=正向条件（自动拼接）
+  输入: [('clip', 'CLIP'), ('text', 'STRING')]
+  输出: [('CONDITIONING', 'CONDITIONING')]
+  参数: [""]
+======================================================================
+id=1036  type=CLIPTextEncode  title=负向词（官方，本流）
+  输入: [('clip', 'CLIP'), ('text', 'STRING')]
+  输出: [('CONDITIONING', 'CONDITIONING')]
+  参数: ["worst quality, low quality, score_1, score_2, score_3, artist name, simple background, lowres, (bad), text, error, fewer, extra, missing, worst quality, jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest, early, signature, artistic error, username, scan, [abstract], english text, shiny hair, extra toes"]
+======================================================================
+id=1039  type=SaveImage  title=
+  输入: [('images', 'IMAGE'), ('filename_prefix', 'STRING')]
+  输出: [('images', 'IMAGE')]
+  参数: ["图片/Anima/ANIMA12/%date:yyyy-MM-dd%/%"]
+======================================================================
+id=1075  type=PrimitiveNode  title=Lora触发词管理
+  输出: [('STRING', 'STRING')]
+  参数: [""]
+======================================================================
+id=1076  type=StringConcatenate  title=触发词+质量词 → 全局正文 拼接
+  输入: [('string_a', 'STRING'), ('string_b', 'STRING'), ('delimiter', 'STRING')]
+  输出: [('STRING', 'STRING')]
+  参数: ["", "", ", "]
+======================================================================
+id=1096  type=XB_VAEDecode  title=
+  输入: [('samples', 'LATENT'), ('vae', 'VAE'), ('tile', 'INT'), ('overlap', 'INT'), ('cleanup', 'COMBO')]
+  输出: [('IMAGE', 'IMAGE')]
+  参数: [320, 32, "不做任何清理"]
+======================================================================
+id=1100  type=XB_SageAttentionAccelerator  title=
+  输入: [('model', 'MODEL'), ('preset', 'COMBO')]
+  输出: [('MODEL', 'MODEL')]
+  参数: ["comfy kitchen attention"]
+======================================================================
+id=1104  type=XB_KSampler  title=
+  输入: [('model', 'MODEL'), ('positive', 'CONDITIONING'), ('negative', 'CONDITIONING'), ('latent', 'LATENT'), ('seed', 'INT'), ('steps', 'INT'), ('cfg', 'FLOAT'), ('sampler', 'COMBO'), ('scheduler', 'COMBO'), ('denoise', 'FLOAT'), ('cleanup', 'COMBO')]
+  输出: [('LATENT', 'LATENT')]
+  参数: [765227801846258, "randomize", 8, 1, "er_sde", "beta", 1, "不做任何清理"]
+======================================================================
+id=1116  type=XB_ImageParamsMaster  title=
+  输入: [('aspect_ratio', 'COMBO'), ('width', 'INT'), ('height', 'INT'), ('batch_size', 'INT'), ('strength_float', 'FLOAT'), ('strength_int', 'INT')]
+  输出: [('Image Width', 'INT'), ('Image Height', 'INT'), ('Batch Size', 'INT'), ('Float Control', 'FLOAT'), ('Int Control', 'INT'), ('Scale Size', 'INT')]
+  参数: ["9:16", 800, 1424, 1, 1, 1]
+======================================================================
+id=1117  type=EmptyLatentImage  title=
+  输入: [('width', 'INT'), ('height', 'INT'), ('batch_size', 'INT')]
+  输出: [('LATENT', 'LATENT')]
+  参数: [1024, 1024, 1]
+======================================================================
+id=1142  type=LoraLoader  title=LoRA 加载 · 流3
+  输入: [('model', 'MODEL'), ('clip', 'CLIP')]
+  输出: [('MODEL', 'MODEL'), ('CLIP', 'CLIP')]
+  参数: ["Anima\\anima-turbo-lora-v0.2.safetensors", 0.6, 0.6]
+======================================================================
+id=1143  type=AnimaV4RandomPrompt  title=
+  输入: [('nsfw_level', 'COMBO'), ('seed', 'INT'), ('tag_cap', 'COMBO'), ('base_prob', 'FLOAT'), ('disabled_sections', 'STRING'), ('lock_fields', 'STRING'), ('force_role', 'STRING'), ('weights_json', 'STRING'), ('extra_body', 'STRING'), ('appearance_follow', 'BOOLEAN'), ('selected_roles', 'STRING'), ('big_breasts', 'BOOLEAN'), ('role_works', 'STRING'), ('breast_size', 'COMBO'), ('outfit_style', 'COMBO'), ('role_fav_only', 'BOOLEAN'), ('hair_follow', 'BOOLEAN'), ('hair_len_pick', 'COMBO'), ('hair_tie_pick', 'COMBO'), ('hair_curl_pick', 'COMBO'), ('hair_acc_pick', 'COMBO')]
+  输出: [('text', 'STRING'), ('report', 'STRING'), ('level', 'STRING'), ('cn_summary', 'STRING')]
+  参数: ["sfw", 2058179405, "randomize", "自动", 0.65, "", "", "", "{\n \"_ui\": {\n  \"tab\": \"near\",\n  \"openSecs\": [\n   \"count\",\n   \"hair\",\n   \"face\"\n  ],\n  \"sceneOpen\": {},\n  \"sceneGroup\": \"all\",\n  \"sceneQuery\": \"\",\n  \"sceneTheme\": \"\",\n  \"sceneThemeAll\": true,\n  \"sceneThemeOpen\": true,\n  \"nearPartOpen\": true,\n  \"sceneFavOnly\": false,\n  \"sceneCompact\": false,\n  \"sceneClosed\": {},\n  \"nearPart\": \"\",\n  \"charWork\": \"__fav__\",\n  \"charQuery\": \"\",\n  \"scroll\": {\n   \"left\": 0.018713274626341217,\n   \"right\": 0\n  }\n }\n}", "@necomi, @banned artist", true, "", false, "", "中等", "随机", false, true, "角色标签发型", "角色标签发型", "角色标签发型", "角色标签发型"]
+======================================================================
+id=1144  type=Note  title=UP主个人画师推荐
+  参数: ["@chigusa minori （千種みのり，知名画师，有商业连载，色彩清透精致）\n@sos adult （超知名画师，风格辨识度极高,画师串常客）\n@kobinbin （P站知名画师，说不上来的好用）\n@choujiroo （P站知名画师，说不上来的好用）\n@sincos （P站知名画师，风格辨识度极高，说不上来的好用）\n@ratatatat74 （超知名画师，风格辨识度极高，牛头神）\n@satou kuuki （佐藤空気，知名画师，恶堕神）\n@endou okito （袁藤冲人，知名画师，精细华丽，经典过于好看没法冲）\n@houkisei （P站知名画师，风格辨识度极高）\n@dishwasher1910 （P站知名画师，风格辨识度极高，独特服装设计和身材比例）\n@akkgsyk （P站知名画师）\n@yoneyama mai（米山舞，顶级商业画师）\n@wlop（《鬼刀》作者，数字艺术圈知名）\n@takeuchi takashi（武内崇，Fate 系列原画）\n@vanripper（Helltaker 作者）\n@mochizuki kei（望月けい，知名商业画师）\n@ke-ta（东方同人圈知名）\n@as109（成人向精致插画圈知名）\n@karory（pixiv 高人气原创系）\n@hiten （台湾商业插画师，主打轻小说插图）\n@ebifurya（海老ふりゃ，知名画师）\n@koyama hirokazu（TYPE-MOON 系）\n@yueko （新西兰专职插画师，商业资历很硬）\n@ciloranko （国产二游圈画师）\n@wanke （韩国画师，《鬼灭之刃》同人出圈）\n@horuhara （碧蓝档案同人画师）\n@kedama milk （P站知名画师）\n@keihh （画风神似官方动画的擦边图出圈）\n@mikozin（明日方舟同人画师）\n@frengartist（韩国画师，画过蔚蓝档案官方联动图，清纯与性感兼具风格）\n@omone hokoma agm（阿戈魔AGM，画师串常客） \n@chen bin（鬼针草，画师串常客）\n@tamanoi peromekuri（玉乃井ぺろめくり，知名插画作者）\n@custom udon（乌冬达神，知名 3D/2.5D 萝莉动画作者）\n@xilmo（XilmO@夕末，中国画师，色彩光影见长）\n@remsrar（REM，韩国画师，明日方舟同人，偏乙女向）\n@misyune （二游同人画师）\n@okazu （主攻黑白水墨风）\n@channel_ （韩国同人画师）\n@ningen mame（AI 圈\"カズ少女\"风格串的常客，和 ciloranko、chen_bin 一起用）\n\n\n@ask \\(askzy\\), "]

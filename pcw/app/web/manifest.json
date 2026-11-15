@@ -1,0 +1,17 @@
+{
+  "name": "KAtorch NPU 生图",
+  "short_name": "NPU生图",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0e13",
+  "theme_color": "#0d1117",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgcng9IjM4IiBmaWxsPSIjMGQxMTE3Ii8+PHBhdGggZD0iTTk2IDM4bDQ0IDI1djUwbC00NCAyNS00NC0yNVY2M3oiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2YwYTA1YSIgc3Ryb2tlLXdpZHRoPSI5Ii8+PGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iMTUiIGZpbGw9IiNmMGEwNWEiLz48L3N2Zz4=",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
