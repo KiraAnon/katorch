@@ -79,8 +79,10 @@ __pycache__/
 /HANDOFF.md
 /PROJECT_LAYOUT.md
 
-# 设备端临时调试脚本（tools/ 下的 _*.sh，共 40+ 个，历史残渣）
-/tools/_*.sh
+# 设备端临时调试脚本（tools/ 下的 _*.sh 等，历史残渣）
+/tools/_*
+# 属于另一条线（comfyui-android）的前端注入修复工具
+/tools/fix_dpr_const.py
 
 # 与另一条开源线（comfyui-android）相关的迁移工具，不属于这套栈
 /tools/make_oss_repo.py

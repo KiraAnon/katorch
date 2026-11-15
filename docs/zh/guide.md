@@ -157,6 +157,7 @@ banner 还顺便告诉你这台设备有哪些加速器。
 | `create` | — | 手动建空 model | `{"ok":true,"rc":0}` |
 | `export` | `path` | 导出编译好的 blob | `{"ok":true,"bytes":N}` |
 | `restore` | `path` | 从 blob 恢复，跳过 build + compile | — |
+| `rpush` | `path` | 把 blob 直接恢复进新 slot，跳过 build 与 compile | — |
 | `use` | `slot` | 切换模型槽 | — |
 | `pop` | — | 释放当前槽（回收 IOVA） | `{"ok":true,"freed_slot":N,...}` |
 | `bload` | `list` | 批量加载 blob（一行一个路径） | `{"ok":true,"n":N}` |
@@ -167,8 +168,10 @@ banner 还顺便告诉你这台设备有哪些加速器。
 | `relax` | `0`/`1` | fp32 是否降级 fp16 | — |
 | `nodev` | `0`/`1` | 是否不指定设备 | — |
 | `poolclear` | — | 清空内存池 | — |
+| `sup` | — | 查询这个 model 在 `mtk-mdla` 上哪些算子**不支持** | — |
 | `ops` | — | 列出已注册算子 | — |
 | `dump` | `dir` | 导出中间张量 | — |
+| `dbg` | `path` | 开启 Neuron 调试报告（`setReportPath` + `createForDebug`） | — |
 | `quit` | — | 退出 | — |
 
 ### 3.2 两条执行路径

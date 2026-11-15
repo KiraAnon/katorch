@@ -186,6 +186,7 @@ particular device exposes.
 | `create` | — | create an empty model manually | `{"ok":true,"rc":0}` |
 | `export` | `path` | write the compiled blob | `{"ok":true,"bytes":N}` |
 | `restore` | `path` | load a blob, skipping build + compile | — |
+| `rpush` | `path` | restore a blob straight into a new slot, skipping build + compile | — |
 | `use` | `slot` | switch model slot | — |
 | `pop` | — | free the current slot (reclaims IOVA) | `{"ok":true,"freed_slot":N,...}` |
 | `bload` | `list` | load a list of blobs, one path per line | `{"ok":true,"n":N}` |
@@ -196,8 +197,10 @@ particular device exposes.
 | `relax` | `0`/`1` | demote fp32 to fp16 | — |
 | `nodev` | `0`/`1` | do not bind an explicit device | — |
 | `poolclear` | — | clear the memory pool | — |
+| `sup` | — | query which operators this model does **not** support on `mtk-mdla` | — |
 | `ops` | — | list registered operators | — |
 | `dump` | `dir` | dump intermediate tensors | — |
+| `dbg` | `path` | enable the Neuron debug report (`setReportPath` + `createForDebug`) | — |
 | `quit` | — | exit | — |
 
 ### 3.2 The two execution paths
