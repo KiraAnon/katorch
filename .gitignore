@@ -87,6 +87,8 @@ __pycache__/
 /tools/make_oss_repo.ps1
 /tools/oss_security_check.py
 /tools/gh_device_login.py
+# 发布前安全检查脚本：内含本机设备序列号的正则，不进公开仓库
+/tools/sec_check.py
 
 # pcw/scripts 下一半以上是「adb shell 调度壳」和临时试验，命名脚本才是可复现的部分
 /pcw/scripts/_*
