@@ -202,3 +202,35 @@ python3 测试/optable.py
 
 It prints one line per operator and writes the graphs it built into its work directory, so
 a `COMPILE` failure can be bisected by deleting lines from a text file.
+
+
+---
+
+## 8. Quantization: what this silicon actually accepts
+
+Measured on MT6897, one operator at a time, each in a fresh host process.
+
+| path | weight form | compiles | speed | note |
+|---|---|---|---|---|
+| **FC** | INT8 per-channel, W8A16 (type 11 + QCH) | ✅ | **1.14x** | 8.6 -> 7.6 ms on 1024x2048x2048 |
+| **CONV_2D** | INT8 per-channel + QCH (type 11) | ❌ `-516` | — | |
+| **CONV_2D** | INT8 per-channel, no QCH (type 11) | ❌ `-516` | — | |
+| **CONV_2D** | INT8 asymmetric per-tensor (type 5) | ❌ `-516` | — | |
+| **CONV_2D** | INT16 per-tensor (type 7) | ✅ | **1.08x** | 20.49 -> 18.89 ms, 128x128x256->256 |
+
+**The convolution path does not accept INT8 at all** — three different encodings, all
+`compile rc=-516`. INT16 compiles but is only 8 % faster, against roughly half the
+numeric precision.
+
+This is why this project runs fp16 end to end and why the INT8 experiment was abandoned
+rather than continued. On other phone NPUs (Hexagon, Da Vinci, ANE) INT8 is genuinely a
+2-4x path; **on this MDLA generation it is not**, and the convolution path refuses it
+outright.
+
+Reproduce:
+
+```sh
+python tools/probe_conv_weight_types.py     # the five weight forms above
+python tools/bench_conv_int16.py            # fp16 vs INT16 timing
+python tools/bench_conv_int8.py             # the earlier INT8 attempt (fails to compile)
+```

@@ -194,3 +194,33 @@ python3 测试/optable.py
 ```
 
 每个算子打印一行，并把建的图留在工作目录里——`COMPILE` 失败时可以直接删文本行做二分。
+
+
+---
+
+## 八、量化：这颗芯片到底接受什么
+
+MT6897 实测，逐个算子、每次开新的 host 进程。
+
+| 通路 | 权重形态 | 能否编译 | 加速 | 备注 |
+|---|---|---|---|---|
+| **FC** | INT8 per-channel，W8A16（type 11 + QCH） | ✅ | **1.14x** | 1024×2048×2048 上 8.6 → 7.6 ms |
+| **CONV_2D** | INT8 per-channel + QCH（type 11） | ❌ `-516` | — | |
+| **CONV_2D** | INT8 per-channel 不带 QCH（type 11） | ❌ `-516` | — | |
+| **CONV_2D** | INT8 非对称 per-tensor（type 5） | ❌ `-516` | — | |
+| **CONV_2D** | INT16 per-tensor（type 7） | ✅ | **1.08x** | 20.49 → 18.89 ms，128×128×256→256 |
+
+**卷积这条通路根本不接受 INT8** —— 三种写法全部 `compile rc=-516`。
+INT16 能编，但只有 8% 的加速，而精度掉了一半。
+
+这就是本项目全程跑 fp16、以及当年 INT8 实验被放弃而不是继续投入的原因。
+在其他手机 NPU（Hexagon、达芬奇、ANE）上 INT8 确实是 2-4 倍的通路，
+**在这一代 MDLA 上不是**，而且卷积通路直接拒绝它。
+
+复现：
+
+```sh
+python tools/probe_conv_weight_types.py     # 上面那五种权重形态
+python tools/bench_conv_int16.py            # fp16 vs INT16 计时
+python tools/bench_conv_int8.py             # 早先那次 INT8 尝试（编译失败）
+```
