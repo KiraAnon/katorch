@@ -224,3 +224,39 @@ python tools/probe_conv_weight_types.py     # 上面那五种权重形态
 python tools/bench_conv_int16.py            # fp16 vs INT16 计时
 python tools/bench_conv_int8.py             # 早先那次 INT8 尝试（编译失败）
 ```
+
+
+---
+
+## 九、SOFTMAX(25)：原生算子只吃 int16 输入
+
+单独列一节，这是个坑，花了两个回合才定位。
+
+| 输入类型 | 结果 |
+|---|---|
+| **INT16**（`type 7`，输出 scale 1/32768） | ✅ **正确** —— 与 torch 逐元素吻合，行和 1.0 |
+| **FP16**（`type 8`） | ❌ 能编译（`rc=0`），但**完全不看数据**：恒输出均匀分布 1/N |
+
+签名（两个输入都必需）：
+
+```
+OPD <data>  7 <nd> <dims...> <in_scale>      0 i
+OPD <beta>  0 0 0 0 0 w <beta_f32_file>        # type 0, nd=0, float32
+OPD <out>   7 <nd> <dims...> 3.0517578125e-05 0 o
+OP 25 2 <data> <beta> 1 <out>
+```
+
+`beta` **必须用文件传**，不能用立即数：`a 1` 写进去的是**整数**位模式
+`0x00000001`，按 float32 解释是 1.4e-45 ≈ 0，于是 softmax 静默退化成均匀分布。
+
+fp16 输入时，无论喂 `[1..8]`、`[0,...,0,1]` 还是全负数，输出都是恒定的
+`0.125`（1/8）。同一份 IO 接线换成 `MUL` 能算出精确平方，说明输入通路没问题，
+是这个 kernel 根本不读 fp16 数据。
+
+**对本项目的结论**：DiT/VAE 图都是 fp16，所以 `lowering.py` 继续把 softmax
+展开成 `REDUCE_MAX / SUB / EXP / REDUCE_SUM / DIV` 五个算子。算子表里记的
+0.05% 精度是**展开版**的成绩，从来不是 opcode 25 的。
+
+我们对比的那个实现，往 SOFTMAX 里喂的是 **int16** —— 它能用一个算子顶五个，靠的就是这个。
+
+`KA_SOFTMAX=native` 可以在确认是 int16 图时强制走原生。

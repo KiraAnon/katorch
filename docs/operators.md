@@ -234,3 +234,43 @@ python tools/probe_conv_weight_types.py     # the five weight forms above
 python tools/bench_conv_int16.py            # fp16 vs INT16 timing
 python tools/bench_conv_int8.py             # the earlier INT8 attempt (fails to compile)
 ```
+
+
+---
+
+## 9. SOFTMAX(25): the native op only works on int16 input
+
+Worth its own section, because it is a trap that cost two rounds of debugging.
+
+| input type | result |
+|---|---|
+| **INT16** (`type 7`, output scale 1/32768) | ✅ **correct** — matches torch elementwise, row sums to 1.0 |
+| **FP16** (`type 8`) | ❌ compiles (`rc=0`) but **ignores the data**: always outputs the uniform distribution 1/N |
+
+Signature (both inputs are required):
+
+```
+OPD <data>  7 <nd> <dims...> <in_scale>      0 i
+OPD <beta>  0 0 0 0 0 w <beta_f32_file>        # type 0, nd=0, float32
+OPD <out>   7 <nd> <dims...> 3.0517578125e-05 0 o
+OP 25 2 <data> <beta> 1 <out>
+```
+
+`beta` **must be a file**, not an immediate: `a 1` writes the *integer* bit
+pattern `0x00000001`, which as a float32 is 1.4e-45 ≈ 0, and softmax silently
+degenerates to uniform.
+
+With an fp16 input the kernel produced `0.125` for every element regardless of
+whether the input was `[1..8]`, `[0,...,0,1]`, or all-negative. A plain `MUL`
+graph with the identical I/O wiring returned exact squares, so input plumbing was
+fine — the kernel simply does not read fp16 data.
+
+**Consequence for this project**: the DiT/VAE graphs are fp16, so `lowering.py`
+keeps expanding softmax into `REDUCE_MAX / SUB / EXP / REDUCE_SUM / DIV`
+(5 ops). The 0.05 % accuracy recorded in the operator table was measured on that
+expansion, never on opcode 25.
+
+The reference implementation we compared against feeds **int16** into its
+SOFTMAX — that is how it gets away with one op instead of five.
+
+`KA_SOFTMAX=native` forces the native op for experiments on genuinely int16 graphs.

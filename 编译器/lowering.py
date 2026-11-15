@@ -1,4 +1,4 @@
-"""NPT lowering —— torch.fx 图 → Neuron 图描述
+﻿"""NPT lowering —— torch.fx 图 → Neuron 图描述
 
 用法：
     low = Lowering("/tmp/out")
@@ -14,9 +14,19 @@ import torch
 import torch.fx as fx
 import torch.nn.functional as F
 
+from ka_island import IslandIn, IslandOut
+
+
+class _IslandTracer(fx.Tracer):
+    """自定义 Tracer：把 FP16 岛边界当成叶子模块，否则 FX 会把它内联成一个恒等、不留节点。"""
+
+    def is_leaf_module(self, m, qn):
+        if isinstance(m, (IslandIn, IslandOut)):
+            return True
+        return super().is_leaf_module(m, qn)
 from shape_infer import Graph as SIGraph
 from shape_infer import FC, ADD, MUL, DIV, SUB, TRANSPOSE, RESHAPE, CONCAT, CAST
-from shape_infer import EXP, REDUCE_MAX, REDUCE_SUM, MAXIMUM, MINIMUM, LOGISTIC, TANH, MEAN, NEG, CONV
+from shape_infer import EXP, REDUCE_MAX, REDUCE_SUM, MAXIMUM, MINIMUM, LOGISTIC, TANH, MEAN, NEG, CONV, SOFTMAX
 from shape_infer import BATCH_MATMUL, SQRT, RSQRT, ABS, RELU, LOG, SIN
 
 T_F16, T_I32 = 8, 4
@@ -39,6 +49,8 @@ class Lowering(object):
         self.tag = 0
         self._imm = {}
         self.const_data = {}
+        self.node_ids = {}      # FX node.name -> operand id（标定用）
+        self.node_extra = {}    # FX node.name -> 该节点创建的所有 operand
 
     # ---------- 基础构件 ----------
     def _tag(self, p):
@@ -182,7 +194,7 @@ class Lowering(object):
 
     # ---------- FX 走图 ----------
     def lower_module(self, mod, inputs, auto_output=True):
-        gm = fx.symbolic_trace(mod)
+        gm = fx.GraphModule(mod, _IslandTracer().trace(mod))
         ret = self._walk(gm, inputs)
         if auto_output:
             if isinstance(ret, list):
@@ -207,7 +219,13 @@ class Lowering(object):
                 if isinstance(a, (tuple, list)):
                     return [env[x] if isinstance(x, fx.Node) else x for x in a]
                 return env[a]
+            _n0 = len(self.opds)
             env[node] = self._node(node, env, gm)
+            self.node_ids[node.name] = env[node]
+            # 记录该节点内部创建的所有 operand（matmul 等会造出多个），
+            # 标定时它们都该拿到这个节点的值，否则会落到兜底尺度上。
+            self.node_extra[node.name] = [int(self.opds[i].split()[1])
+                                          for i in range(_n0, len(self.opds))]
             if os.environ.get("NPT_DEBUG"):
                 oid = env[node]
                 sh = self.si.shapes.get(oid) if oid is not None else None
@@ -234,8 +252,7 @@ class Lowering(object):
         sh = self._shape(x)
         axis = len(sh) - 1
         sq = self.op(MUL, [x, x, self.act0()])
-        ax = self.scalar(axis)
-        mn = self.op(MEAN, [sq, ax, self.act0()], axis=axis)
+        mn = self._reduce(sq, MEAN, axis)
         eps = self.const(np.array([1e-6], np.float16), nd=(1,))
         ad = self.op(ADD, [mn, eps, self.act0()])
         rq = self.op(RSQRT, [ad])
@@ -291,16 +308,99 @@ class Lowering(object):
             shp = [total // known if v == -1 else v for v in shp]
         return self.op(RESHAPE, [x, self.const_i32(shp)], shape=shp)
 
+    def _fc_reduce(self, x, mean=False):
+        """用 FC（全 1 权重）实现最后一维的 sum/mean。
+
+        只为 INT8 量化链路准备：MDLA 的 INT16 归约算子（MEAN/REDUCE_SUM/REDUCE_MAX）
+        实测数值是坏的，而 FC 在 W8A16 下精度 0.4%。fp16 链路默认不走这条。
+        """
+        sh = list(self._shape(x))
+        n = int(sh[-1])
+        m = int(np.prod(sh[:-1])) if len(sh) > 1 else 1
+        x2 = x
+        if len(sh) != 2:
+            x2 = self.op(RESHAPE, [x, self.const_i32([m, n])], shape=(m, n))
+        w = np.full((1, n), (1.0 / n) if mean else 1.0, np.float16)
+        b = np.zeros(1, np.float16)
+        o = self.op(FC, [x2, self.const(w), self.const(b), self.act0()])
+        tgt = tuple(sh[:-1]) + (1,)
+        if len(tgt) != 2:
+            o = self.op(RESHAPE, [o, self.const_i32(list(tgt))], shape=tgt)
+        return o
+
+    def _reduce(self, x, code, axis):
+        """按开关选择：坏的 REDUCE_* / MEAN，还是 FC 版。"""
+        if os.environ.get("KA_REDUCE_AS_FC") and axis == -1:
+            return self._fc_reduce(x, mean=(code == MEAN))
+        ax = self.scalar(axis)
+        return self.op(code, [x, ax, self.act0()], axis=axis)
+
     def softmax5(self, x, axis=-1):
         sh = self._shape(x)
-        if axis < 0: axis += len(sh)
+        if axis < 0:
+            axis += len(sh)
+        # 归一化/softmax 这类对精度敏感、又依赖归约算子的部分，整体放进 FP16 岛：
+        # MDLA 的 INT16 归约（MEAN/REDUCE_MAX/REDUCE_SUM）实测是坏的，
+        # 而 FP16 下它们完全正确。边界用 DEQUANTIZE(6) / QUANTIZE(72)。
+        island = bool(os.environ.get("KA_NORM_ISLAND")) and axis == len(sh) - 1
+        if island:
+            x = self.op(6, [x])          # INT16 -> FP16
         ax = self.scalar(axis)
         mx = self.op(REDUCE_MAX, [x, ax, self.act0()], axis=axis)
         sb = self.op(SUB, [x, mx, self.act0()])
         ex = self.op(EXP, [sb])
         sm = self.op(REDUCE_SUM, [ex, ax, self.act0()], axis=axis)
-        return self.op(DIV, [ex, sm, self.act0()])
+        out = self.op(DIV, [ex, sm, self.act0()])
+        if island:
+            out = self.op(72, [out])     # FP16 -> INT16
+        return out
 
+    def scalar_f32(self, v):
+        """FLOAT32 标量（type 0, nd=0）。SOFTMAX 的 beta 必须用这个类型——
+        换成 type 3 (TENSOR_FLOAT32) 实测编译直接 -516。
+
+        ★ 必须走 w 文件，不能用立即数：`a 1` 写进去的是整数 1 的位模式
+        (0x00000001)，而 type 0 要的是 float 1.0 (0x3F800000)。用立即数时
+        beta 变成 1.4e-45 ≈ 0，softmax 退化成均匀分布（实测输出恒为 1/64）。
+        """
+        k = ("f32", float(v))
+        if k in self._imm:
+            return self._imm[k]
+        arr = np.array([float(v)], np.float32)
+        path = os.path.join(self.outdir, self._tag("f") + ".bin")
+        arr.tofile(path)
+        oid = self.si.operand((), "w")
+        self._opd(oid, 0, (), "w " + path)
+        self._imm[k] = oid
+        return oid
+
+    def softmax_native(self, x, axis=-1, beta=1.0):
+        """原生 SOFTMAX（opcode 25）：数据 + float32 beta 标量，一个算子。
+
+        实测 2D/3D/4D 都支持，最后一维不要求是 2 的幂（100x100 也编得过）。
+        相比手写的 softmax5 少 4 个算子。仅用于 fp16 图；
+        INT16 岛模式（KA_NORM_ISLAND）下量化参数未验证，仍走 softmax5。
+        """
+        if float(beta) != 1.0:
+            raise Unsupported("SOFTMAX beta != 1.0 未验证")
+        return self.op(SOFTMAX, [x, self.scalar_f32(beta)], axis=axis)
+
+    def softmax(self, x, axis=-1):
+        """默认走手写展开 softmax5 —— 这是 fp16 图唯一正确的做法。
+
+        ★ 实测结论（别被「有原生算子」骗了）
+          原生 SOFTMAX(25) 只对 **INT16 量化输入** 正确：
+            int16 输入 + 输出 scale 1/32768  -> 与 torch 逐元素吻合，行和 1.0
+          对 **fp16 输入**，它恒输出均匀分布 1/N，完全不看数据：
+            输入 [1..8] / [0..0,1] / 全负，输出都一样 [0.125 ×8]
+          所以 fp16 图必须展开成 REDUCE_MAX/SUB/EXP/REDUCE_SUM/DIV 五个算子。
+          当年 optable.py 测出的「SOFTMAX 0.05%」是展开版的成绩，不是原生 25。
+
+        KA_SOFTMAX=native 可以在确认输入是 int16 时强制走原生（省 4 个算子）。
+        """
+        if os.environ.get("KA_SOFTMAX") == "native":
+            return self.softmax_native(x, axis)
+        return self.softmax5(x, axis)
     def matmul(self, a, b):
         ash, bsh = list(self._shape(a)), list(self._shape(b))
         # 2D @ 2D
@@ -336,6 +436,15 @@ class Lowering(object):
         if node.op == "call_module":
             mod = gm.get_submodule(node.target)
             x = env[node.args[0]]
+            # FP16 norm 岛的边界标记（见 ka_island.py）
+            if isinstance(mod, IslandIn):
+                if not os.environ.get("KA_NORM_ISLAND"):
+                    return x
+                return self.op(6, [x])     # DEQUANTIZE  INT16 -> FP16
+            if isinstance(mod, IslandOut):
+                if not os.environ.get("KA_NORM_ISLAND"):
+                    return x
+                return self.op(72, [x])    # QUANTIZE    FP16 -> INT16
             if isinstance(mod, torch.nn.Linear):
                 if os.environ.get("NPT_DEBUG"):
                     print("   linear %-22s in=%s" % (node.target, self.si.shapes[x]))
@@ -410,6 +519,14 @@ class Lowering(object):
                 return self.op(TANH, [a[0]])
             if nm == "exp":
                 return self.op(EXP, [a[0]])
+            if nm == "island_in":
+                if not os.environ.get("KA_NORM_ISLAND"):
+                    return a[0]
+                return self.op(6, [a[0]])      # DEQUANTIZE  INT16 -> FP16
+            if nm == "island_out":
+                if not os.environ.get("KA_NORM_ISLAND"):
+                    return a[0]
+                return self.op(72, [a[0]])     # QUANTIZE    FP16 -> INT16
             if nm == "sqrt":
                 return self.op(SQRT, [a[0]])
             if nm == "rsqrt":
@@ -443,7 +560,7 @@ class Lowering(object):
                 return self.op(RSQRT, [a[0]])
             if nm == "softmax":
                 dim = node.kwargs.get("dim", node.args[1] if len(node.args) > 1 else -1)
-                return self.softmax5(a[0], dim)
+                return self.softmax(a[0], dim)
             if nm == "matmul":
                 return self.matmul(a[0], a[1])
             if nm == "cat":
@@ -470,15 +587,13 @@ class Lowering(object):
                 raise Unsupported("pow(%s)" % e)
             if m == "mean":
                 dim = node.args[1] if len(node.args) > 1 else -1
-                ax = self.scalar(dim)
-                return self.op(MEAN, [x, ax, self.act0()], axis=dim)
+                return self._reduce(x, MEAN, dim)
             if m == "sum":
                 # 只支持 keepdim=True（shape_infer 的 REDUCE_SUM 默认保留维度）
                 dim = node.args[1] if len(node.args) > 1 else -1
                 if len(node.args) > 2 and node.args[2] is False:
                     raise Unsupported("sum(keepdim=False)")
-                ax = self.scalar(dim)
-                return self.op(REDUCE_SUM, [x, ax, self.act0()], axis=dim)
+                return self._reduce(x, REDUCE_SUM, dim)
             if m == "reshape":
                 shp = [int(v) for v in node.args[1:]]
                 return self.reshape(x, shp)
