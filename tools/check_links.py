@@ -20,12 +20,22 @@ SKIP_PREFIX = ("http://", "https://", "mailto:", "#", "data:")
 
 
 def tracked_markdown():
+    """Tracked .md paths.
+
+    `-z` and `core.quotepath=false` are both deliberate. With git's default
+    core.quotepath=true, non-ASCII paths (this repo has several Chinese directory
+    names) come back escaped as octal `\\NNN` inside double quotes, which is not a
+    usable filename. That only breaks in a fresh clone -- on a machine where
+    quotepath was turned off locally, the bug is invisible. It is the reason this
+    script passed locally and failed in CI.
+    """
     try:
-        out = subprocess.run(["git", "-C", ROOT, "ls-files", "*.md"],
-                             capture_output=True, text=True, encoding="utf-8").stdout
+        out = subprocess.run(
+            ["git", "-C", ROOT, "-c", "core.quotepath=false", "ls-files", "-z", "*.md"],
+            capture_output=True).stdout
     except FileNotFoundError:
         return []
-    return [line for line in out.splitlines() if line.strip()]
+    return [p for p in out.decode("utf-8", "replace").split("\0") if p.strip()]
 
 
 def main():
