@@ -31,6 +31,85 @@
 | `KAtorchFreeMemory` | — | — | 关掉 host 会话，回收 IOVA |
 | `KAtorchNPUGenerate` | prompt 等 | `IMAGE` | 兼容旧工作流的黑盒节点 |
 
+---
+
+## ⚠️ 验证状态（**用之前先看这里**）
+
+**这 13 个节点不是全都跑过。** 下表如实标注，别拿"代码在"当"能跑"。
+
+### 节点
+
+| 节点 | 状态 | 说明 |
+|---|---|---|
+| `KAtorchUNETLoader` | ✅ 已验证 | `modular_ui.json` 多轮出图 |
+| `KAtorchCLIPLoader` | ✅ 已验证 | 同上 |
+| `KAtorchVAELoader` | ✅ 已验证 | 同上 |
+| `KAtorchCLIPTextEncode` | ✅ 已验证 | 日志有"文本编码完成 3.0s" |
+| `KAtorchEmptyLatentImage` | ✅ 已验证 | 同上 |
+| `KAtorchKSampler` | ✅ 已验证 | 8 步采样日志完整 |
+| `KAtorchVAEDecode` | ✅ 已验证 | PSNR 46.15 dB vs torch |
+| `KAtorchVAEEncode` | ✅ 已验证 | 图生图，PSNR 46.15 dB |
+| `KAtorchNPUGenerate` | ✅ 已验证 | 黑盒节点，多轮出图 |
+| `KAtorchLoraLoader` | ⚠️ **未验证** | 只支持预合并组合，没实跑过 |
+| `KAtorchModelInfo` | ⚠️ **未验证** | 纯文本输出，应该没问题但没试 |
+| `KAtorchFreeMemory` | ⚠️ **未验证** | 没试过释放后能否重载 |
+| `KAtorchClearCondCache` | ⚠️ **未验证** | 2026-11-15 新加，只跑过语法检查 |
+
+### 采样器（3 个）
+
+| 采样器 | 状态 |
+|---|---|
+| `er_sde` | ✅ 已验证（默认，多次出图） |
+| `euler` | ✅ 已验证（和 er_sde 对比测过） |
+| `heun` | ⚠️ **未验证**（代码在 `samplers.py:113`，没跑过） |
+
+### 调度器（6 个）
+
+| 调度器 | 状态 |
+|---|---|
+| `beta` | ✅ 已验证（默认，对齐 PC 上 ComfyUI） |
+| `linear` | ✅ 已验证（旧默认，对比测过） |
+| `normal` | ⚠️ **未验证** |
+| `karras` | ⚠️ **未验证** |
+| `sgm_uniform` | ⚠️ **未验证** |
+| `simple` | ⚠️ **未验证** |
+
+### 分辨率 / 底模 / 功能
+
+| 项 | 状态 |
+|---|---|
+| 512×512 | ✅ 唯一充分验证的尺寸 |
+| 800×1424 | ❌ **已知不可用** —— 实测把手机拖到强制重启（加载 7.9 GB，OOM） |
+| 其他分辨率 | ⚠️ 未验证（要重编 16 块 blob） |
+| 底模 `anima_v1` | ✅ 已验证 |
+| 底模 `miaomiaoHarem_anima12` | ✅ 已验证（出过图） |
+| 其他底模 | ⚠️ 未验证 |
+| 文生图 | ✅ 已验证 |
+| 图生图（denoise 0.55） | ✅ 已验证 |
+| `cfg > 1` | ⚠️ **基本未验证** —— `cfg_api.json` 跑过一次（cfg=1.6），但耗时翻倍这一点没系统测 |
+| LoRA | ⚠️ 未验证（只能在编译期合并） |
+| 视频 / 多帧 | ❌ 不支持（DiT 是静态图，只出单张） |
+
+### 硬件前提
+
+以上"已验证"全部基于**这一台机器**：
+
+| 项 | 值 |
+|---|---|
+| 机型 | OB-A98 |
+| SoC | MediaTek MT6897 / Dimensity 8300 |
+| NPU | MDLA 5.0（APUSys） |
+| 系统 | Android 15 |
+| 内存 | 15.8 GB |
+| Termux | 0.118.3（侧载，uid 10171） |
+| Python | 3.14.10 |
+| torch | 2.15.0（**CPU only**） |
+
+**换一台机器**：同代或更新的 MTK MDLA 芯片理论可用，但 **opcode 支持度、IOVA 配额、
+编译能不能过都可能不一样**。在别的芯片上，上面所有 ✅ 都要重新测一遍。
+
+---
+
 ## 典型工作流（和 ComfyUI 原生长得一样）
 
 ```
