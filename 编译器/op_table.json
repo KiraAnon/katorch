@@ -1,0 +1,207 @@
+[
+ {
+  "group": "unary",
+  "name": "RELU",
+  "status": "ok",
+  "ms": 7.17,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "LOGISTIC",
+  "status": "ok",
+  "ms": 6.76,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "TANH",
+  "status": "ok",
+  "ms": 7.52,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "EXP",
+  "status": "ok",
+  "ms": 5.41,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "NEG",
+  "status": "ok",
+  "ms": 5.47,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "ABS",
+  "status": "ok",
+  "ms": 5.6,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "RSQRT",
+  "status": "ok",
+  "ms": 5.72,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "SQRT",
+  "status": "ok",
+  "ms": 8.09,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "unary",
+  "name": "SIN",
+  "status": "unsupported",
+  "detail": "{\"ok\":false,\"rc\":-516}"
+ },
+ {
+  "group": "unary",
+  "name": "LOG",
+  "status": "unsupported",
+  "detail": "{\"ok\":false,\"rc\":-516}"
+ },
+ {
+  "group": "binary",
+  "name": "ADD",
+  "status": "ok",
+  "ms": 8.97,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "binary",
+  "name": "MUL",
+  "status": "ok",
+  "ms": 7.23,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "binary",
+  "name": "SUB",
+  "status": "ok",
+  "ms": 6.91,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "binary",
+  "name": "DIV",
+  "status": "ok",
+  "ms": 7.98,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "binary",
+  "name": "MAXIMUM",
+  "status": "ok",
+  "ms": 6.85,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "binary",
+  "name": "MINIMUM",
+  "status": "ok",
+  "ms": 8.25,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "pattern",
+  "name": "ABS_via_NEG_MAX",
+  "status": "ok",
+  "ms": 7.6,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "reduce",
+  "name": "MEAN_axis1",
+  "status": "ok",
+  "ms": 2.91,
+  "compile_s": 0.01,
+  "out_bytes": 2048
+ },
+ {
+  "group": "reduce",
+  "name": "REDUCE_SUM_axis1",
+  "status": "ok",
+  "ms": 3.13,
+  "compile_s": 0.01,
+  "out_bytes": 2048
+ },
+ {
+  "group": "reduce",
+  "name": "REDUCE_MAX_axis1",
+  "status": "ok",
+  "ms": 2.9,
+  "compile_s": 0.01,
+  "out_bytes": 2048
+ },
+ {
+  "group": "shape",
+  "name": "TRANSPOSE_2D",
+  "status": "ok",
+  "ms": 4.92,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "shape",
+  "name": "RESHAPE",
+  "status": "ok",
+  "ms": 5.13,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ },
+ {
+  "group": "matmul",
+  "name": "FC",
+  "status": "ok",
+  "ms": 28.83,
+  "compile_s": 0.5,
+  "out_bytes": 16777216,
+  "shape": "1024x2048x8192"
+ },
+ {
+  "group": "matmul",
+  "name": "BMM_KN_adj00",
+  "status": "ok",
+  "ms": 49.24,
+  "compile_s": 0.02,
+  "out_bytes": 16777216
+ },
+ {
+  "group": "matmul",
+  "name": "BMM_NK_adj01",
+  "status": "ok",
+  "ms": 28.1,
+  "compile_s": 0.02,
+  "out_bytes": 16777216
+ },
+ {
+  "group": "pattern",
+  "name": "SOFTMAX_unroll5",
+  "status": "ok",
+  "ms": 6.94,
+  "compile_s": 0.01,
+  "out_bytes": 4194304
+ }
+]

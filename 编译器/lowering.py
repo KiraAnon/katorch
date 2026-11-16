@@ -18,6 +18,7 @@ from ka_island import IslandIn, IslandOut
 # 编译配方：一套「怎么把模型编成一张图」的决策集合（见 recipe.py）。
 # 不传就用默认 fp16 配方，行为与重构前完全一致。
 from recipe import resolve as resolve_recipe
+from op_select import prefer as prefer_op, report as opsel_report, cost as op_cost
 
 
 class _IslandTracer(fx.Tracer):
@@ -436,12 +437,34 @@ class Lowering(object):
         if len(ash) == 2 and len(bsh) == 2:
             if os.environ.get("NPT_DEBUG"):
                 print("    matmul 2D@2D: a=%s b=%s" % (ash, bsh))
-            # 右操作数是常量时优先走 FC —— 实测 FC 比 BATCH_MATMUL 快 1.84 倍
-            # （[1024,2048]x[2048,8192]：BMM 55.1ms vs FC 30.0ms，数值逐元素一致）。
-            # DiT 的 MLP 正好是 2D@2D，这一路占了单块搬运量的六成。
             bd = self._cdata(b)
             if bd is not None:
-                W = np.ascontiguousarray(np.asarray(bd, np.float16).T)   # y = x @ B  =>  W = B^T
+                # 权重要求是常量，三种写法在真机上价格差很多（[1024,2048]x[2048,8192]）：
+                #   BMM[N,K] adj_y=1  28.10 ms   <- 实测最快
+                #   FC  [N,K]         28.83 ms
+                #   BMM[K,N]          49.24 ms   <- 布局不对，慢 1.75 倍
+                # 选哪个交给性能表（tools/op_table.json），换芯片重跑 bench_ops 即可改行为。
+                # ★ 候选顺序把 FC 放最前是有原因的，别按表里的单算子成绩重排：
+                #   单算子基准里 BMM_NK_adj01(28.10ms) 确实比 FC(28.83ms) 快 2.5%，
+                #   但 BMM 要求 3D 输入，在真实图里要多包 3 个 reshape，整块实测反而
+                #   慢 3.5%（382.0 -> 395.8 ms，算子 1234 -> 1414）。
+                #   单算子表和真实上下文之间差着这一层包装成本，实测为准。
+                pick = prefer_op("matmul", ["FC", "BMM_NK_adj01", "BMM_KN_adj00"])
+                if os.environ.get("NPT_DEBUG"):
+                    print("      -> 选择 %s" % pick)
+                if pick == "BMM_NK_adj01":
+                    W = np.ascontiguousarray(np.asarray(bd, np.float16).T)   # [N,K]
+                    w_id = self.const(W)
+                    b3 = self.reshape(w_id, [1, W.shape[0], W.shape[1]])
+                    a3 = self.reshape(a, [1, ash[0], ash[1]])
+                    one = self.const_i32([1])
+                    o = self.op(BATCH_MATMUL,
+                                [a3, b3, self.scalar(0), one],
+                                adj_x=0, adj_y=1)
+                    osh = self._shape(o)
+                    return self.reshape(o, [osh[1], osh[2]])
+                # FC 或回退：FC 要 [out,in]
+                W = np.ascontiguousarray(np.asarray(bd, np.float16).T)
                 zb = np.zeros(W.shape[0], np.float16)
                 return self.op(FC, [a, self.const(W), self.const(zb), self.act0()])
             # 非常量：只能走 BMM（batch 维各为 1）
