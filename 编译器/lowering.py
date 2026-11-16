@@ -39,6 +39,30 @@ class Unsupported(Exception):
     pass
 
 
+class LazyConst(object):
+    """延迟物化的常量。
+
+    为什么要有它：FX 图里 get_attr 会立刻物化一个 operand，但下游的 matmul/linear
+    往往自己从 const_data 取 numpy 再生成一份（因为要的是转置后的布局）。结果原本
+    那份 operand 变成死代码 —— 实测占常量的 52%。
+
+    LazyConst 只记住 numpy 数据，等真正被算子消费时才生成 operand，所以不会留下孤儿。
+    """
+
+    __slots__ = ("data", "operand")
+
+    def __init__(self, data):
+        self.data = np.ascontiguousarray(np.asarray(data, dtype=np.float16))
+        self.operand = None
+
+    @property
+    def shape(self):
+        return tuple(self.data.shape)
+
+    def __repr__(self):
+        return "LazyConst(%s)" % (self.shape,)
+
+
 class Lowering(object):
     def __init__(self, outdir, recipe=None):
         self.outdir = outdir
@@ -120,6 +144,9 @@ class Lowering(object):
         if os.environ.get("NPT_DEBUG"):
             print("      op %d ins=%s shapes=%s kw=%s"
                   % (code, ins, [self.si.shapes[i] for i in ins], kw))
+        # 进 shape_infer 之前必须全是 operand id：LazyConst 在这里物化。
+        # （matmul/linear 这类需要读数据的算子会先自己取 numpy 再重建，不会走到这条）
+        ins = [self._as_operand(i) for i in ins]
         oid = self.si.op(code, ins, **kw)
         shape = self.si.shapes[oid]
         self._opd(oid, self.recipe.act_dtype, shape, "o")
@@ -153,7 +180,7 @@ class Lowering(object):
 
     def linear_op(self, x, wid, bid):
         """F.linear 的 lowering：权重/bias 必须是常量 operand。"""
-        wd = self.const_data.get(wid)
+        wd = self._cdata(wid)
         if wd is None:
             raise Unsupported("F.linear 的权重必须是常量")
         xsh = self.si.shapes[x]
@@ -250,7 +277,15 @@ class Lowering(object):
         return out
 
     def _shape(self, oid):
+        if isinstance(oid, LazyConst):
+            return oid.shape
         return self.si.shapes[oid]
+
+    def _cdata(self, x):
+        """取常量背后的 numpy 数据；x 可以是 operand id，也可以是 LazyConst。"""
+        if isinstance(x, LazyConst):
+            return x.data
+        return self.const_data.get(x)
 
     # ---- 具体算子 ----
     def rmsnorm_seq(self, x, weight):
@@ -404,7 +439,7 @@ class Lowering(object):
             # 右操作数是常量时优先走 FC —— 实测 FC 比 BATCH_MATMUL 快 1.84 倍
             # （[1024,2048]x[2048,8192]：BMM 55.1ms vs FC 30.0ms，数值逐元素一致）。
             # DiT 的 MLP 正好是 2D@2D，这一路占了单块搬运量的六成。
-            bd = self.const_data.get(b)
+            bd = self._cdata(b)
             if bd is not None:
                 W = np.ascontiguousarray(np.asarray(bd, np.float16).T)   # y = x @ B  =>  W = B^T
                 zb = np.zeros(W.shape[0], np.float16)
@@ -418,9 +453,9 @@ class Lowering(object):
         # 3D @ 2D: [B,M,K] @ [K,N]  -> 用 FC（BMM 的 batch 维必须相等，不能广播）
         if len(ash) == 3 and len(bsh) == 2:
             if os.environ.get("NPT_DEBUG"):
-                bd0 = self.const_data.get(b)
+                bd0 = self._cdata(b)
                 print("    matmul 3D@2D: a=%s b=%s bd_shape=%s" % (ash, bsh, None if bd0 is None else bd0.shape))
-            bd = self.const_data.get(b)
+            bd = self._cdata(b)
             if bd is None:
                 raise Unsupported("3D@2D matmul 右操作数不是常量: a=%s b=%s kinds=%s" %
                                   (ash, bsh, [getattr(self.si, "kinds", {}).get(i) for i in (a, b)]))
@@ -463,7 +498,7 @@ class Lowering(object):
                 except AttributeError: obj = None
             if obj is None:
                 raise Unsupported("get_attr %s" % node.target)
-            return self.const(obj.detach().float().numpy())
+            return LazyConst(obj.detach().float().numpy())
 
         if node.op == "call_function":
             fn = node.target
@@ -473,7 +508,11 @@ class Lowering(object):
                 attr = node.args[1] if len(node.args) > 1 else None
                 if attr == "T":
                     # 常量转置直接折叠，不生成算子（这样 matmul 的右操作数仍是常量）
-                    cd = self.const_data.get(a[0])
+                    if isinstance(a[0], LazyConst):
+                        # 保持延迟：只记住转置后的数据，用到时才落盘。
+                        # 这正是 FC 想要的 [out,in] 布局，省掉一份转置副本。
+                        return LazyConst(np.ascontiguousarray(a[0].data.T))
+                    cd = self._cdata(a[0])
                     if cd is not None:
                         return self.const(np.ascontiguousarray(np.asarray(cd).T))
                     sh = self._shape(a[0])
@@ -501,7 +540,7 @@ class Lowering(object):
                 if isinstance(padding, int): padding = (padding, padding)
                 pad4 = (padding[1], padding[1], padding[0], padding[0])   # l,r,t,b
                 # 权重必须是常量才能预转置
-                wd = self.const_data.get(w)
+                wd = self._cdata(w)
                 if wd is None:
                     raise Unsupported("conv2d: 权重不是常量")
                 w_ohwc = np.ascontiguousarray(np.transpose(wd, (0, 2, 3, 1)))  # O,C,KH,KW -> O,KH,KW,C
@@ -625,6 +664,10 @@ class Lowering(object):
 
     def _as_operand(self, v):
         """operand id 是 int；float 一定是数值常量；int 若不在 shapes 里也是常量。"""
+        if isinstance(v, LazyConst):
+            if v.operand is None:
+                v.operand = self.const(v.data)
+            return v.operand
         if type(v) is float:
             return self._maybe_const(v, None)
         if type(v) is int and v not in self.si.shapes:
