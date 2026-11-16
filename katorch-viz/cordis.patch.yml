@@ -1,0 +1,12 @@
+# KAtorch 可视化编译器 bundle
+# 侧栏「KAtorch 图」入口 + 主面板节点图编辑器 + agent 工具 katorch_viz
+- insert:
+    - id: katorch-viz
+      name: '@local/katorch-viz'
+      config:
+        # 打开界面时预填的路径
+        defaultPath: 'F:\KAtorch\PC编译\wsl-sysroot\n1\g.txt'
+        # 图里的常量路径 → 本机路径。手机上是 /data/data/com.termux/...，
+        # 本机若有一份拷贝就靠这个映射对上，形状推导才读得到 axis/perm/shape。
+        constRewrite:
+          - ['/data/data/com.termux/files/home/npt/', 'F:/KAtorch/artifacts/npt/']

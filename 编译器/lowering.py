@@ -401,6 +401,15 @@ class Lowering(object):
         if len(ash) == 2 and len(bsh) == 2:
             if os.environ.get("NPT_DEBUG"):
                 print("    matmul 2D@2D: a=%s b=%s" % (ash, bsh))
+            # 右操作数是常量时优先走 FC —— 实测 FC 比 BATCH_MATMUL 快 1.84 倍
+            # （[1024,2048]x[2048,8192]：BMM 55.1ms vs FC 30.0ms，数值逐元素一致）。
+            # DiT 的 MLP 正好是 2D@2D，这一路占了单块搬运量的六成。
+            bd = self.const_data.get(b)
+            if bd is not None:
+                W = np.ascontiguousarray(np.asarray(bd, np.float16).T)   # y = x @ B  =>  W = B^T
+                zb = np.zeros(W.shape[0], np.float16)
+                return self.op(FC, [a, self.const(W), self.const(zb), self.act0()])
+            # 非常量：只能走 BMM（batch 维各为 1）
             a3 = self.reshape(a, [1, ash[0], ash[1]])
             b3 = self.reshape(b, [1, bsh[0], bsh[1]])
             o = self.op(BATCH_MATMUL, [a3, b3, self.scalar(0), self.scalar(0)], adj_x=0, adj_y=0)

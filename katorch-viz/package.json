@@ -1,0 +1,26 @@
+{
+  "name": "@local/katorch-viz",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "KAtorch 可视化编译器 —— 看见并编辑 lowering 出来的 NPU 图，导出直接是能编译的 g.txt",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js"
+  },
+  "scripts": {
+    "test": "node test/all.mjs",
+    "build": "node build.mjs",
+    "check": "node build.mjs && node --input-type=module -e \"import('./index.js').then(()=>console.log('index.js OK'))\""
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-ui-slots"]
+    }
+  }
+}
