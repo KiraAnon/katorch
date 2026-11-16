@@ -580,9 +580,9 @@ class Lowering(object):
             if nm == "minimum":
                 return self.op(MINIMUM, [self._as_operand(a[0]), self._as_operand(a[1])])
             if nm == "abs":
-                # abs(x) = maximum(x, -x)
-                x = self._as_operand(a[0])
-                return self.op(MAXIMUM, [x, self.op(NEG, [x])])
+                # 实测 ABS(38) 单算子比 maximum(x, -x) 两个算子快 26%
+                # （5.60 ms vs 7.60 ms，[1024,2048] fp16，见 tools/op_table.md）
+                return self.op(ABS, [self._as_operand(a[0])])
             if nm == "relu":
                 x = self._as_operand(a[0])
                 return self.op(MAXIMUM, [x, self.const(np.array([0.0], np.float16), nd=(1,))])
