@@ -1,4 +1,4 @@
-﻿// neuron_rt host —— 绕过 NNAPI，直接驱动 MediaTek Neuron Adapter / MDLA
+// neuron_rt host —— 绕过 NNAPI，直接驱动 MediaTek Neuron Adapter / MDLA
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -180,11 +180,25 @@ static int build_from_file(const char* path){
             if (rc) { fclose(f); return -200 - rc; }
             if (*p == 'w'){
                 p++; while (*p == ' ') p++;
-                char* e = p; while (*e && *e != '\n' && *e != '\r') e++; *e = 0;
-                long sz = file_size(p);
+                char* e2 = p; while (*e2 && *e2 != '\n' && *e2 != '\r') e2++; *e2 = 0;
+                // 两种写法：
+                //   w <path>            整个文件就是一个常量
+                //   w <path> <off> <len>  从打包文件里取一段（小常量合并用，
+                //                         避免几千次 setOperandValue 各建一个 IOVA buffer）
+                long sz = -1, off = 0;
+                char* sp = strchr(p, ' ');
+                if (sp){
+                    *sp = 0;
+                    char* q = sp + 1;
+                    off = strtol(q, &q, 10);
+                    sz = strtol(q, &q, 10);
+                } else {
+                    sz = file_size(p);
+                }
                 if (sz < 0) { fclose(f); return -104; }
                 void* buf = malloc(sz);
                 FILE* wf = fopen(p, "rb"); if (!wf) { free(buf); fclose(f); return -105; }
+                if (off) fseek(wf, off, SEEK_SET);
                 if (fread(buf, 1, sz, wf) != (size_t)sz) { fclose(wf); free(buf); fclose(f); return -106; }
                 fclose(wf);
                 rc = M_setVal(m, id, buf, (size_t)sz);
@@ -632,8 +646,8 @@ int main(void){
             continue;
         }
         if (!strncmp(p, "{\"cmd\":\"run\",\"spec\":\"", 21)){
-            char* q = p + 21; char spec[2048]; int k = 0;
-            while (*q && *q != '"' && k < 2047) spec[k++] = *q++;
+            char* q = p + 21; char spec[16384]; int k = 0;
+            while (*q && *q != '"' && k < 16383) spec[k++] = *q++;
             spec[k] = 0;
             int rc = run_spec(spec);
             printf("{\"ok\":%s,\"rc\":%d}\n", rc == 0 ? "true" : "false", rc);

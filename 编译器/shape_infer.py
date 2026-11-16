@@ -1,4 +1,4 @@
-"""算子形状推导 + 校验
+﻿"""算子形状推导 + 校验
 
 为什么必须有这层：
   adapter **不校验** operand 声明的形状和算子实际输出是否一致。
@@ -21,6 +21,7 @@ MAXPOOL, RESHAPE = 17, 22
 SOFTMAX, TANH, MEAN = 25, 28, 31
 SUB, TRANSPOSE = 36, 37
 ABS, CAST = 38, 45
+DEQUANTIZE, QUANTIZE = 6, 72
 EXP, LOG, DIV = 49, 60, 30
 LOG_SOFTMAX = 64
 MAXIMUM, MINIMUM, NEG = 65, 66, 67
@@ -34,7 +35,7 @@ NAMES = {0:"ADD",1:"AVGPOOL",2:"CONCAT",3:"CONV_2D",9:"FC",14:"LOGISTIC",17:"MAX
          65:"MAXIMUM",66:"MINIMUM",67:"NEG",77:"REDUCE_MAX",80:"REDUCE_SUM",
          83:"RSQRT",85:"SIN",88:"SQRT",102:"BATCH_MATMUL"}
 
-UNARY = {14, 19, 20, 21, 25, 28, 38, 45, 49, 60, 64, 67, 83, 85, 88}
+UNARY = {6, 14, 19, 20, 21, 25, 28, 38, 45, 49, 60, 64, 67, 72, 83, 85, 88}
 BINARY = {0, 18, 30, 36, 65, 66}
 REDUCE = {31, 77, 80}
 

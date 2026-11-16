@@ -120,3 +120,8 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 玑绘逆向的中间产物（17.4 GB，独立放在 F:\jihui-reference）
+/reference-jihui/
+/viz/
+*.bak-*

@@ -1,4 +1,4 @@
-﻿"""NPT lowering —— torch.fx 图 → Neuron 图描述
+"""NPT lowering —— torch.fx 图 → Neuron 图描述
 
 用法：
     low = Lowering("/tmp/out")
@@ -15,6 +15,9 @@ import torch.fx as fx
 import torch.nn.functional as F
 
 from ka_island import IslandIn, IslandOut
+# 编译配方：一套「怎么把模型编成一张图」的决策集合（见 recipe.py）。
+# 不传就用默认 fp16 配方，行为与重构前完全一致。
+from recipe import resolve as resolve_recipe
 
 
 class _IslandTracer(fx.Tracer):
@@ -37,9 +40,12 @@ class Unsupported(Exception):
 
 
 class Lowering(object):
-    def __init__(self, outdir):
+    def __init__(self, outdir, recipe=None):
         self.outdir = outdir
         os.makedirs(outdir, exist_ok=True)
+        # 配方：决定激活精度、权重精度、归约/softmax 实现、是否插 FP16 岛。
+        # 优先级：显式参数 > KA_RECIPE > fp16；老环境变量（KA_REDUCE_AS_FC 等）最高。
+        self.recipe = recipe or resolve_recipe()
         self.si = SIGraph()
         self.opds = []
         self.ops = []
@@ -64,7 +70,7 @@ class Lowering(object):
 
     def input(self, shape):
         oid = self.si.operand(tuple(shape), "in")
-        self._opd(oid, T_F16, shape, "i")
+        self._opd(oid, self.recipe.act_dtype, shape, "i")
         self.ins.append(oid)
         return oid
 
@@ -116,7 +122,7 @@ class Lowering(object):
                   % (code, ins, [self.si.shapes[i] for i in ins], kw))
         oid = self.si.op(code, ins, **kw)
         shape = self.si.shapes[oid]
-        self._opd(oid, T_F16, shape, "o")
+        self._opd(oid, self.recipe.act_dtype, shape, "o")
         self.ops.append("OP %d %d %s 1 %d"
                         % (code, len(ins), " ".join(str(i) for i in ins), oid))
         return oid
@@ -313,8 +319,12 @@ class Lowering(object):
         return o
 
     def _reduce(self, x, code, axis):
-        """按开关选择：坏的 REDUCE_* / MEAN，还是 FC 版。"""
-        if os.environ.get("KA_REDUCE_AS_FC") and axis == -1:
+        """按配方选：原生归约算子，还是 FC（全 1 权重）版。
+
+        fp16 配方走原生（完全正确）；int16 配方走 FC —— MDLA 的 INT16 归约
+        （MEAN/REDUCE_SUM/REDUCE_MAX）实测是坏的，而 FC 在 W8A16 下精度 0.4%。
+        """
+        if self.recipe.reduce_impl(axis) == "fc":
             return self._fc_reduce(x, mean=(code == MEAN))
         ax = self.scalar(axis)
         return self.op(code, [x, ax, self.act0()], axis=axis)
@@ -326,7 +336,7 @@ class Lowering(object):
         # 归一化/softmax 这类对精度敏感、又依赖归约算子的部分，整体放进 FP16 岛：
         # MDLA 的 INT16 归约（MEAN/REDUCE_MAX/REDUCE_SUM）实测是坏的，
         # 而 FP16 下它们完全正确。边界用 DEQUANTIZE(6) / QUANTIZE(72)。
-        island = bool(os.environ.get("KA_NORM_ISLAND")) and axis == len(sh) - 1
+        island = self.recipe.use_island(axis=axis, ndim=len(sh))
         if island:
             x = self.op(6, [x])          # INT16 -> FP16
         ax = self.scalar(axis)
@@ -382,7 +392,7 @@ class Lowering(object):
 
         KA_SOFTMAX=native 可以在确认输入是 int16 时强制走原生（省 4 个算子）。
         """
-        if os.environ.get("KA_SOFTMAX") == "native":
+        if self.recipe.softmax_impl == "native":
             return self.softmax_native(x, axis)
         return self.softmax5(x, axis)
     def matmul(self, a, b):
@@ -422,11 +432,11 @@ class Lowering(object):
             x = env[node.args[0]]
             # FP16 norm 岛的边界标记（见 ka_island.py）
             if isinstance(mod, IslandIn):
-                if not os.environ.get("KA_NORM_ISLAND"):
+                if not self.recipe.norm_island:
                     return x
                 return self.op(6, [x])     # DEQUANTIZE  INT16 -> FP16
             if isinstance(mod, IslandOut):
-                if not os.environ.get("KA_NORM_ISLAND"):
+                if not self.recipe.norm_island:
                     return x
                 return self.op(72, [x])    # QUANTIZE    FP16 -> INT16
             if isinstance(mod, torch.nn.Linear):
@@ -504,11 +514,11 @@ class Lowering(object):
             if nm == "exp":
                 return self.op(EXP, [a[0]])
             if nm == "island_in":
-                if not os.environ.get("KA_NORM_ISLAND"):
+                if not self.recipe.norm_island:
                     return a[0]
                 return self.op(6, [a[0]])      # DEQUANTIZE  INT16 -> FP16
             if nm == "island_out":
-                if not os.environ.get("KA_NORM_ISLAND"):
+                if not self.recipe.norm_island:
                     return a[0]
                 return self.op(72, [a[0]])     # QUANTIZE    FP16 -> INT16
             if nm == "sqrt":
